@@ -1,8 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function HomePage() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
+
   return (
     <div className="landing-page">
       <div className="landing-bg" />
@@ -16,6 +21,22 @@ export default function HomePage() {
           Track your reel performance, automate DMs, and grow your audience —
           all from a single beautiful dashboard.
         </p>
+
+        {error && (
+          <div style={{
+            padding: '14px 20px',
+            background: 'rgba(253, 29, 29, 0.1)',
+            border: '1px solid rgba(253, 29, 29, 0.3)',
+            borderRadius: '12px',
+            color: '#ff6b6b',
+            fontSize: '0.88rem',
+            marginBottom: '24px',
+            textAlign: 'left',
+            wordBreak: 'break-word',
+          }}>
+            ❌ <strong>Auth Error:</strong> {decodeURIComponent(error)}
+          </div>
+        )}
 
         <div className="landing-features">
           <div className="landing-feature">
@@ -49,5 +70,13 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#0a0a0f' }} />}>
+      <HomeContent />
+    </Suspense>
   );
 }

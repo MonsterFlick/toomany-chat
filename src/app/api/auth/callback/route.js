@@ -40,8 +40,13 @@ export async function GET(request) {
         });
 
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`);
-    } catch (error) {
-        console.error('OAuth callback error:', error);
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}?error=auth_error`);
+    } catch (err) {
+        console.error('OAuth callback error:', err);
+        // Return detailed error for debugging
+        const errorMessage = err?.response?.data?.error?.message || err?.message || 'Unknown error';
+        const errorType = err?.response?.data?.error?.type || '';
+        return NextResponse.redirect(
+            `${process.env.NEXT_PUBLIC_BASE_URL}?error=${encodeURIComponent(errorMessage)}&type=${encodeURIComponent(errorType)}`
+        );
     }
 }
