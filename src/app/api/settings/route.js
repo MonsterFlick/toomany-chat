@@ -1,12 +1,12 @@
 // Settings API
 import { NextResponse } from 'next/server';
-import { getSettings, updateSettings, getSession, getDemoAccount } from '@/lib/store';
+import { getSettings, updateSettings, getSession } from '@/lib/store';
 
 export async function GET() {
     const session = getSession();
     return NextResponse.json({
         settings: getSettings(),
-        account: session?.profile || getDemoAccount(),
+        account: session?.profile || null,
         isConnected: !!session,
     });
 }

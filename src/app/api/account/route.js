@@ -1,6 +1,6 @@
 // Account / Session API — supports direct Instagram tokens AND Facebook User tokens
 import { NextResponse } from 'next/server';
-import { getSession, getDemoAccount, setSession } from '@/lib/store';
+import { getSession, setSession } from '@/lib/store';
 import axios from 'axios';
 
 export async function GET() {
