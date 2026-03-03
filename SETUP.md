@@ -1,32 +1,34 @@
-# TooMany Chat — Complete Setup Guide (0 → 100)
+# TooMany Chat — Setup Guide (0 → 100)
 
 Your app URL: **https://toomany-chat-tp2l.vercel.app**
 
+> **No OAuth or Business Verification needed!**
+> This app uses a manually generated access token — takes ~5 minutes to set up.
+
 ---
 
-## PHASE 1 — Meta Developer App Setup
+## PHASE 1 — Meta Developer App
 
 ### Step 1: Create a Meta Developer Account
 1. Go to [developers.facebook.com](https://developers.facebook.com)
-2. Click **"Get Started"** and log in with your Facebook account
-3. Accept the developer terms
+2. Click **"Get Started"** → log in with Facebook → accept terms
 
 ### Step 2: Create a New App
 1. Click **"My Apps" → "Create App"**
-2. **Use case** → Select **"Other"**
-3. **App type** → Select **"Business"**
+2. **Use case** → **"Other"**
+3. **App type** → **"Business"**
 4. Fill in:
    - **App name**: `toomany-chat`
    - **Contact email**: your email
 5. Click **"Create App"**
 
-> ✅ Copy your **App ID** and **App Secret** from App Settings → Basic
+> ✅ Note your **App ID** and **App Secret** from App Settings → Basic
 
 ---
 
-## PHASE 2 — App Settings (Basic)
+## PHASE 2 — App Basic Settings
 
-Go to **App Settings → Basic** and fill in all fields:
+Go to **App Settings → Basic** and fill in:
 
 | Field | Value |
 |---|---|
@@ -35,59 +37,59 @@ Go to **App Settings → Basic** and fill in all fields:
 | **Terms of Service URL** | `https://toomany-chat-tp2l.vercel.app/privacy` |
 | **User Data Deletion URL** | `https://toomany-chat-tp2l.vercel.app/data-deletion` |
 | **Category** | `Business and Pages` |
-| **Site URL** (scroll to bottom, Website section) | `https://toomany-chat-tp2l.vercel.app` |
+| **Website → Site URL** (scroll to bottom) | `https://toomany-chat-tp2l.vercel.app` |
 
 Click **"Save Changes"**
 
 ---
 
-## PHASE 3 — Add Products
+## PHASE 3 — Add Instagram Product
 
-### Step 3: Add Facebook Login
-1. Left sidebar → **"Add Product"**
-2. Find **"Facebook Login for Business"** → Click **Set Up**
-3. Choose **"Web"**
-4. Go to **Facebook Login → Settings**
-5. Under **Valid OAuth Redirect URIs**, add:
-   ```
-   https://toomany-chat-tp2l.vercel.app/api/auth/callback
-   ```
-6. Click **"Save Changes"**
-
-### Step 4: Add Instagram Graph API
 1. Left sidebar → **"Add Product"**
 2. Find **"Instagram Graph API"** → Click **Set Up**
-3. Go to **Instagram Graph API → Settings**
-4. Connect your Instagram Business/Creator account
-
-### Step 5: Add Instagram Messaging
-1. Left sidebar → **"Add Product"**
-2. Find **"Messenger"** → Click **Set Up**
-3. This enables DM sending via the Instagram Messaging API
+3. That's it — no Facebook Login needed!
 
 ---
 
-## PHASE 4 — Connect Instagram Account
+## PHASE 4 — Connect Your Instagram Account
 
-### Step 6: Link Instagram to a Facebook Page
 > Your Instagram must be a **Business or Creator account**
 
+### Step 3: Link Instagram to a Facebook Page
 1. Go to [facebook.com](https://facebook.com) → your **Facebook Page**
 2. Page Settings → **"Linked Accounts"** → Connect Instagram
-3. Log in to your Instagram account
-
-### Step 7: Generate Access Token
-1. In Meta App → **Instagram Graph API → Generate Access Tokens**
-2. Select your Facebook Page (linked to your Instagram)
-3. Grant all requested permissions
-4. Copy the generated token
+3. Log in to your Instagram account and confirm
 
 ---
 
-## PHASE 5 — Configure Webhooks
+## PHASE 5 — Generate Access Token ⭐ (Most Important Step)
 
-### Step 8: Set Up Webhook
-1. Left sidebar → **"Webhooks"** (or find it under Instagram API)
+### Step 4: Use Graph API Explorer
+1. Go to [Graph API Explorer](https://developers.facebook.com/tools/explorer/)
+2. Top right dropdown → select your app **"toomany-chat"**
+3. Click **"Generate Access Token"**
+4. Check these permissions:
+   - `instagram_basic`
+   - `instagram_manage_comments`
+   - `instagram_manage_insights`
+   - `instagram_manage_messages`
+   - `pages_show_list`
+5. Click **Generate** → login with Facebook → authorize
+6. Copy the token shown
+
+### Step 5: Exchange for Long-Lived Token (60 days)
+In the same Graph API Explorer, run this query:
+```
+GET /oauth/access_token?grant_type=fb_exchange_token&client_id=YOUR_APP_ID&client_secret=YOUR_APP_SECRET&fb_exchange_token=SHORT_TOKEN
+```
+Or just use the token directly — it'll work for testing (short-lived = 1 hour, long-lived = 60 days).
+
+---
+
+## PHASE 6 — Configure Webhooks
+
+### Step 6: Set Up Webhook for Comments
+1. Left sidebar → **"Webhooks"**
 2. Click **"Add Callback URL"**
 
 | Field | Value |
@@ -95,96 +97,61 @@ Click **"Save Changes"**
 | **Callback URL** | `https://toomany-chat-tp2l.vercel.app/api/webhook` |
 | **Verify Token** | `my_secret_verify_token` |
 
-3. Click **"Verify and Save"** — should say ✅ Verified
-4. Subscribe to the **`comments`** field
+3. Click **"Verify and Save"** → should show ✅ Verified
+4. Then subscribe to the **`comments`** field under Instagram
 
 ---
 
-## PHASE 6 — Vercel Environment Variables
+## PHASE 7 — Vercel Environment Variables
 
-### Step 9: Set All Env Vars on Vercel
 Go to [vercel.com](https://vercel.com) → your project → **Settings → Environment Variables**
 
 | Variable | Value |
 |---|---|
-| `INSTAGRAM_APP_ID` | Your App ID from Meta (e.g. `2140620066757781`) |
+| `INSTAGRAM_APP_ID` | Your App ID (e.g. `2140620066757781`) |
 | `INSTAGRAM_APP_SECRET` | Your App Secret from Meta |
 | `NEXT_PUBLIC_BASE_URL` | `https://toomany-chat-tp2l.vercel.app` |
 | `WEBHOOK_VERIFY_TOKEN` | `my_secret_verify_token` |
 | `DEFAULT_REWARD_URL` | `https://omthakur.in` |
 
-> ⚠️ After adding/changing env vars, you **must redeploy**:
-> Deployments tab → click **⋮** on latest → **Redeploy**
+> ⚠️ After saving env vars → **Redeploy** (Deployments tab → ⋮ → Redeploy)
 
 ---
 
-## PHASE 7 — Go Live
+## PHASE 8 — Go Live
 
-### Step 10: Switch App to Live Mode
-1. In Meta App Dashboard, find the toggle at the top: **"Development ↔ Live"**
-2. Before going Live, Meta requires:
-   - ✅ Privacy Policy URL (set in Phase 2)
-   - ✅ Data Deletion URL (set in Phase 2)
-   - ✅ App Domains (set in Phase 2)
-   - ✅ Category selected (set in Phase 2)
-3. Toggle to **"Live"**
+1. In Meta App, toggle from **"Development"** to **"Live"** at the top
+2. All the Basic Settings from Phase 2 must be filled in for this to work
 
 ---
 
-## PHASE 8 — App Review (for Public Use)
+## PHASE 9 — Connect on the App ⭐
 
-> If you only use the app with your **own** Instagram account (the one used to create the Meta app), you can skip App Review.
-> For other users to connect, you need to submit for review.
-
-### Step 11: Request Advanced Permissions
-1. Left sidebar → **"App Review → Permissions and Features"**
-2. Request these permissions:
-   - `instagram_basic`
-   - `instagram_manage_comments`
-   - `instagram_manage_insights`
-   - `instagram_manage_messages`
-   - `pages_show_list`
-3. For each, click **"Request Advanced Access"** and submit use case description
-
----
-
-## PHASE 9 — Test the Full Flow
-
-### Step 12: Connect Instagram on Your App
 1. Visit **https://toomany-chat-tp2l.vercel.app**
 2. Click **"Connect Instagram"**
-3. Log in with Facebook → authorize the app
-4. You should be redirected to the **Dashboard** ✅
-
-### Step 13: Test Automation
-1. Go to **Automation** page
-2. Make sure a rule is active (e.g. keyword: `FREE`)
-3. Comment `FREE` on one of your reels from a different account
-4. Within 30 seconds, a DM should be sent automatically
+3. Paste your **access token** from Phase 5
+4. Click **"Connect"** → you'll be redirected to the Dashboard ✅
 
 ---
 
-## Quick Reference Checklist
+## Quick Checklist
 
 ```
 [ ] Meta Developer account created
 [ ] App created (type: Business, use case: Other)
-[ ] App domains set: toomany-chat-tp2l.vercel.app
+[ ] App Domains set: toomany-chat-tp2l.vercel.app
 [ ] Privacy Policy URL set
 [ ] Data Deletion URL set
-[ ] Category set
-[ ] Site URL set
-[ ] Facebook Login product added
-[ ] OAuth redirect URI added: .../api/auth/callback
+[ ] Category set + Site URL set
 [ ] Instagram Graph API product added
-[ ] Messenger product added
 [ ] Instagram Business account linked to Facebook Page
-[ ] Webhook URL verified: .../api/webhook
-[ ] Webhook subscribed to: comments
-[ ] All 5 Vercel env vars set correctly
-[ ] App redeployed on Vercel after env vars
-[ ] App switched to Live mode
-[ ] Successfully connected Instagram on the app
+[ ] Access token generated from Graph API Explorer
+[ ] Webhook verified: .../api/webhook (verify token: my_secret_verify_token)
+[ ] Webhook subscribed to: comments field
+[ ] All 5 Vercel env vars set correctly + redeployed
+[ ] App switched to Live mode on Meta
+[ ] Token pasted into the app and connected
+[ ] Dashboard shows real account data
 [ ] Automation rule created and tested
 ```
 
@@ -194,9 +161,8 @@ Go to [vercel.com](https://vercel.com) → your project → **Settings → Envir
 
 | Error | Fix |
 |---|---|
-| `Can't load URL` | Add `toomany-chat-tp2l.vercel.app` to **App Domains** in Basic Settings |
-| `Invalid app ID` | Make sure `INSTAGRAM_APP_ID` on Vercel matches Meta dashboard |
-| `auth_error` | Check App Secret matches between Vercel env and Meta dashboard |
-| `no_ig_account` | Instagram account must be Business/Creator and linked to a Facebook Page |
-| Webhook not verifying | Make sure `WEBHOOK_VERIFY_TOKEN` on Vercel = `my_secret_verify_token` |
-| DMs not sending | App needs `instagram_manage_messages` permission approved |
+| `Can't load URL` | Add `toomany-chat-tp2l.vercel.app` to App Domains in Basic Settings |
+| `No Instagram account found` | Make sure Instagram is linked to a Facebook Page |
+| Webhook not verifying | Verify token on Vercel must equal `my_secret_verify_token` |
+| Token expired | Get a new long-lived token from Graph API Explorer (valid 60 days) |
+| DMs not sending | Need `instagram_manage_messages` permission on the token |
