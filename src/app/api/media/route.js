@@ -1,28 +1,23 @@
-// Media API — fetch real media via Instagram Graph API
+// Media API — reads token from cookie, fully stateless
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/store';
 import axios from 'axios';
 
-export async function GET() {
-    const session = getSession();
+export async function GET(request) {
+    const token = request.cookies.get('ig_token')?.value;
 
-    if (!session) {
+    if (!token) {
         return NextResponse.json({ media: [], notConnected: true });
     }
 
     try {
-        // Fetch media using direct Instagram token
-        const mediaRes = await axios.get('https://graph.instagram.com/me/media', {
+        const res = await axios.get('https://graph.instagram.com/me/media', {
             params: {
                 fields: 'id,caption,media_type,thumbnail_url,media_url,timestamp,like_count,comments_count,permalink',
                 limit: 25,
-                access_token: session.accessToken,
+                access_token: token,
             }
         });
-
-        const media = mediaRes.data?.data || [];
-
-        return NextResponse.json({ media });
+        return NextResponse.json({ media: res.data?.data || [] });
     } catch (err) {
         const msg = err?.response?.data?.error?.message || err?.message;
         return NextResponse.json({ media: [], error: msg });

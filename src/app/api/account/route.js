@@ -1,28 +1,37 @@
-// Account / Session API — supports direct Instagram tokens AND Facebook User tokens
+// Account / Session API — token stored in cookie, stateless serverless
 import { NextResponse } from 'next/server';
-import { getSession, setSession } from '@/lib/store';
 import axios from 'axios';
 
-export async function GET() {
-    const session = getSession();
-    if (session) {
-        return NextResponse.json({
-            isConnected: true,
-            account: session.profile,
-            connectedAt: session.connectedAt,
-        });
-    }
-    return NextResponse.json({
-        isConnected: false,
-        account: getDemoAccount(),
-        isDemo: true,
-    });
+const COOKIE_NAME = 'ig_token';
+
+// Helper to read token from request cookie
+function getTokenFromRequest(request) {
+    return request.cookies.get(COOKIE_NAME)?.value || null;
 }
 
-// POST — connect using a manually provided access token
-// Supports two token types:
-//   1. Direct Instagram token (from Instagram API setup page) → calls graph.instagram.com
-//   2. Facebook User token (from Graph API Explorer) → looks up linked Facebook Pages
+export async function GET(request) {
+    const token = getTokenFromRequest(request);
+    if (!token) {
+        return NextResponse.json({ isConnected: false, account: null });
+    }
+
+    try {
+        const res = await axios.get('https://graph.instagram.com/me', {
+            params: {
+                fields: 'id,username,name,profile_picture_url,followers_count,follows_count,media_count',
+                access_token: token,
+            }
+        });
+        return NextResponse.json({ isConnected: true, account: res.data });
+    } catch {
+        // Token invalid/expired — clear it
+        const response = NextResponse.json({ isConnected: false, account: null });
+        response.cookies.delete(COOKIE_NAME);
+        return response;
+    }
+}
+
+// POST — validate token, set cookie
 export async function POST(request) {
     try {
         const { accessToken } = await request.json();
@@ -30,62 +39,48 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Access token required' }, { status: 400 });
         }
 
-        let igAccountId, profile;
+        let profile = null;
 
-        // ── Strategy 1: Direct Instagram token (graph.instagram.com) ──
+        // Strategy 1: Direct Instagram token
         try {
-            const meRes = await axios.get('https://graph.instagram.com/me', {
+            const res = await axios.get('https://graph.instagram.com/me', {
                 params: {
-                    fields: 'id,username,name,profile_picture_url,followers_count,follows_count,media_count,biography',
+                    fields: 'id,username,name,profile_picture_url,followers_count,follows_count,media_count',
                     access_token: accessToken,
                 }
             });
-            if (meRes.data?.id) {
-                igAccountId = meRes.data.id;
-                profile = meRes.data;
-                console.log('Connected via direct Instagram token:', profile.username);
-            }
-        } catch {
-            // Not a direct Instagram token — try Facebook approach below
-        }
+            if (res.data?.id) profile = res.data;
+        } catch { /* try next */ }
 
-        // ── Strategy 2: Facebook User token → find linked Instagram Business Account ──
-        if (!igAccountId) {
+        // Strategy 2: Facebook User token → find linked IG account
+        if (!profile) {
             try {
                 const pagesRes = await axios.get('https://graph.facebook.com/v21.0/me/accounts', {
                     params: { access_token: accessToken }
                 });
-
                 const pages = pagesRes.data?.data || [];
                 if (pages.length === 0) {
                     return NextResponse.json({
-                        error: 'No Facebook Pages found linked to this token. Try using the token from the Instagram API setup page instead (in your Meta App → Instagram → Generate token).'
+                        error: 'No Facebook Pages found. Use the token from Meta App → Instagram → Generate token.'
                     }, { status: 400 });
                 }
-
-                // Find a page that has an Instagram Business Account
                 for (const page of pages) {
                     try {
                         const igRes = await axios.get(`https://graph.facebook.com/v21.0/${page.id}`, {
-                            params: {
-                                fields: 'instagram_business_account',
-                                access_token: page.access_token,
-                            }
+                            params: { fields: 'instagram_business_account', access_token: page.access_token }
                         });
                         if (igRes.data?.instagram_business_account?.id) {
-                            igAccountId = igRes.data.instagram_business_account.id;
-
-                            // Get profile
-                            const profileRes = await axios.get(`https://graph.facebook.com/v21.0/${igAccountId}`, {
+                            const igId = igRes.data.instagram_business_account.id;
+                            const profileRes = await axios.get(`https://graph.facebook.com/v21.0/${igId}`, {
                                 params: {
-                                    fields: 'username,name,profile_picture_url,followers_count,follows_count,media_count,biography',
+                                    fields: 'id,username,name,profile_picture_url,followers_count,follows_count,media_count',
                                     access_token: accessToken,
                                 }
                             });
                             profile = profileRes.data;
                             break;
                         }
-                    } catch { /* try next page */ }
+                    } catch { /* try next */ }
                 }
             } catch (err) {
                 const msg = err?.response?.data?.error?.message || err?.message;
@@ -93,21 +88,22 @@ export async function POST(request) {
             }
         }
 
-        if (!igAccountId) {
+        if (!profile) {
             return NextResponse.json({
-                error: 'Could not find an Instagram account linked to this token. Make sure your Instagram is a Business or Creator account.'
+                error: 'Could not find an Instagram account. Make sure it is a Business or Creator account.'
             }, { status: 400 });
         }
 
-        // Store session
-        setSession({
-            accessToken,
-            igAccountId,
-            profile,
-            connectedAt: new Date().toISOString(),
+        // Set token in httpOnly cookie (7 days)
+        const response = NextResponse.json({ success: true, profile });
+        response.cookies.set(COOKIE_NAME, accessToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            maxAge: 60 * 60 * 24 * 7, // 7 days
+            path: '/',
         });
-
-        return NextResponse.json({ success: true, profile });
+        return response;
 
     } catch (err) {
         const msg = err?.response?.data?.error?.message || err?.message || 'Failed to connect';
@@ -115,8 +111,9 @@ export async function POST(request) {
     }
 }
 
-// DELETE — disconnect / logout
+// DELETE — clear cookie
 export async function DELETE() {
-    setSession(null);
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.cookies.delete(COOKIE_NAME);
+    return response;
 }
